@@ -1,9 +1,14 @@
 package scripting.idlescript;
 
+import static bot.Main.getController;
+import static bot.Main.log;
+
 import bot.Main;
 import controller.Controller;
 import java.awt.*;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import javax.swing.*;
 import orsc.ORSCharacter;
 
@@ -67,6 +72,11 @@ public class AIOFighter extends IdleScript {
   private final long startTimestamp = System.currentTimeMillis() / 1000L;
   private int bonesBuried = 0;
   private int spellsCasted = 0;
+
+  private static final Map<String, AIOFighterConfig> accountNameToAutoConfig = new HashMap<>() {
+
+  };
+
   /**
    * This function is the entry point for the program. It takes an array of parameters and executes
    * script based on the values of the parameters. <br>
@@ -104,8 +114,13 @@ public class AIOFighter extends IdleScript {
       startTile[1] = c.currentY();
 
       while (c.isRunning()) {
-        if (c.getNeedToMove()) c.moveCharacter();
-        if (c.getShouldSleep()) c.sleepHandler(true);
+        if (c.getNeedToMove()) {
+          c.moveCharacter();
+        }
+        if (c.getShouldSleep()) {
+          log(getController().getPlayerName() + " needs to sleep - sleeping");
+          c.sleepHandler(true);
+        }
         // 0th priority: walking back to starting zone if out of zone
         // 1st priority: setting fightmode
         // 2nd priority: eating
