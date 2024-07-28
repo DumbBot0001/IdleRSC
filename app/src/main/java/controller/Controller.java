@@ -5087,6 +5087,7 @@ public class Controller {
       logout();
       stop();
     } else {
+      log(getPlayerName() + " is sleeping");
       itemCommand(1263);
       sleep(1280);
       while (isSleeping()) sleep(100);

@@ -54,7 +54,9 @@ public class PaintBuilder {
     this.pX = x - 1;
     this.pY = y - 1;
     startTime = System.currentTimeMillis();
-    rowData.clear();
+    synchronized (rowData) {
+      rowData.clear();
+    }
     isScriptPaint = true;
   }
   /**
@@ -237,7 +239,9 @@ public class PaintBuilder {
    */
   public void addRow(RowBuilder rowInfo) {
     if (rowInfo != null) {
-      rowData.add(rowInfo);
+      synchronized (rowData) {
+        rowData.add(rowInfo);
+      }
     } else {
       c.log("Failed to add row to PaintBuilder");
     }
@@ -248,7 +252,9 @@ public class PaintBuilder {
     rowHeight = Math.max(rowHeight, 0);
     RowBuilder row = new RowBuilder();
     row.rowHeight = rowHeight;
-    rowData.add(row);
+    synchronized (rowData) {
+      rowData.add(row);
+    }
   }
 
   /**
@@ -348,145 +354,156 @@ public class PaintBuilder {
 
         // Draw rows
         if (!rowData.isEmpty()) {
-          for (RowBuilder r : rowData) {
-            // Highlight row backgrounds for testing r.rowHeight
-            /*boolean debug = false;
-            if (debug) {
-              if (rowNum % 2 == 1) {
-                c.drawBoxAlpha(
-                    pX, pY + cumulativeRowHeight + rowsY, pWidth, r.rowHeight, 0xffffff, 155);
-              } else {
-                c.drawBoxAlpha(
-                    pX, pY + cumulativeRowHeight + rowsY, pWidth, r.rowHeight, 0x454545, 155);
-              }
-            }*/
+          synchronized (rowData) {
+            for (RowBuilder r : rowData) {
+              // Highlight row backgrounds for testing r.rowHeight
+              /*boolean debug = false;
+              if (debug) {
+                if (rowNum % 2 == 1) {
+                  c.drawBoxAlpha(
+                      pX, pY + cumulativeRowHeight + rowsY, pWidth, r.rowHeight, 0xffffff, 155);
+                } else {
+                  c.drawBoxAlpha(
+                      pX, pY + cumulativeRowHeight + rowsY, pWidth, r.rowHeight, 0x454545, 155);
+                }
+              }*/
 
-            switch (r.type) {
-                // Draws a row with multiple strings
-              case "MultipleStrings":
-                {
-                  int x = pX;
-                  int y = pY + rowsY + cumulativeRowHeight + fixFontAnchoring(r.fontSize);
-                  for (int i = 0; i < r.strings.length; i++) {
-                    x += r.stringXOffsets[i];
-                    String text = r.strings[i];
-                    int color = r.colors[i];
+              switch (r.type) {
+                  // Draws a row with multiple strings
+                case "MultipleStrings":
+                  {
+                    int x = pX;
+                    int y = pY + rowsY + cumulativeRowHeight + fixFontAnchoring(r.fontSize);
+                    for (int i = 0; i < r.strings.length; i++) {
+                      x += r.stringXOffsets[i];
+                      String text = r.strings[i];
+                      int color = r.colors[i];
+                      if (text != null && color != 0) c.drawString(text, x, y, color, r.fontSize);
+                    }
+
+                    break;
+                  }
+                  // Draws a row with a single string
+                case "SingleString":
+                  {
+                    String text = r.text;
+                    int x = r.borderXOffset + pX;
+                    int y = pY + rowsY + cumulativeRowHeight + fixFontAnchoring(r.fontSize);
+                    int color = r.stringColor;
+
                     if (text != null && color != 0) c.drawString(text, x, y, color, r.fontSize);
+
+                    break;
+                  }
+                  // Draws a row with a single centered string
+                case "CenteredString":
+                  {
+                    String text = r.text;
+                    int x = (pWidth / 2) + pX;
+                    int y = pY + rowsY + cumulativeRowHeight + (r.fontSize < 3 ? 4 : 5);
+                    int color = r.stringColor;
+
+                    if (text != null && color != 0)
+                      c.drawCenteredString(text, x, y, color, r.fontSize);
+                    break;
+                  }
+                  // Draws a row with multiple item sprites and strings for each
+                case "MultipleSprites":
+                  if (r.colors == null) r.colors = new int[] {0xffffff};
+                  int cumulativeSpacing = 0;
+                  for (int i = 0; i < r.ids.length; i++) {
+                    String str = r.strings[i];
+                    int id = r.ids[i];
+                    int scale = r.scales[i];
+                    int stringXOffset = r.stringXOffset;
+                    int color = r.colors.length == r.ids.length ? r.colors[i] : r.colors[0];
+
+                    cumulativeSpacing += c.getItemSpriteScaledWidth(id, scale) + r.spriteSpacing;
+                    int spriteX = r.borderXOffset + cumulativeSpacing;
+                    int spriteY = pY + rowsY + cumulativeRowHeight;
+                    int stringX = pX + r.borderXOffset + stringXOffset + cumulativeSpacing;
+                    int stringY = pY + spriteY + r.stringYOffset + 11;
+
+                    c.drawItemSprite(id, spriteX, spriteY, scale, false);
+                    c.drawString(str, stringX, stringY, color, 1);
                   }
 
                   break;
-                }
-                // Draws a row with a single string
-              case "SingleString":
-                {
-                  String text = r.text;
-                  int x = r.borderXOffset + pX;
-                  int y = pY + rowsY + cumulativeRowHeight + fixFontAnchoring(r.fontSize);
-                  int color = r.stringColor;
+                  // Draws a row with an item sprite and multiple strings
+                case "SingleSpriteMultipleStrings":
+                  {
+                    int id = r.itemId;
+                    int rowX = pX + r.borderXOffset;
+                    int spriteY = pY + rowsY + cumulativeRowHeight + 2;
+                    int stringY = spriteY + r.stringYOffset + fixFontAnchoring(r.fontSize);
+                    int scale = r.spriteScale;
+                    c.drawItemSprite(id, rowX, spriteY, scale, false);
+                    int stringX = rowX;
+                    for (int i = 0; i < r.strings.length; i++) {
+                      stringX += r.stringXOffsets[i];
+                      int color = r.colors[i];
+                      String text = r.strings[i];
+                      if (text != null && color != 0)
+                        c.drawString(text, stringX, stringY, color, 1);
+                    }
 
-                  if (text != null && color != 0) c.drawString(text, x, y, color, r.fontSize);
-
-                  break;
-                }
-                // Draws a row with a single centered string
-              case "CenteredString":
-                {
-                  String text = r.text;
-                  int x = (pWidth / 2) + pX;
-                  int y = pY + rowsY + cumulativeRowHeight + (r.fontSize < 3 ? 4 : 5);
-                  int color = r.stringColor;
-
-                  if (text != null && color != 0)
-                    c.drawCenteredString(text, x, y, color, r.fontSize);
-                  break;
-                }
-                // Draws a row with multiple item sprites and strings for each
-              case "MultipleSprites":
-                if (r.colors == null) r.colors = new int[] {0xffffff};
-                int cumulativeSpacing = 0;
-                for (int i = 0; i < r.ids.length; i++) {
-                  String str = r.strings[i];
-                  int id = r.ids[i];
-                  int scale = r.scales[i];
-                  int stringXOffset = r.stringXOffset;
-                  int color = r.colors.length == r.ids.length ? r.colors[i] : r.colors[0];
-
-                  cumulativeSpacing += c.getItemSpriteScaledWidth(id, scale) + r.spriteSpacing;
-                  int spriteX = r.borderXOffset + cumulativeSpacing;
-                  int spriteY = pY + rowsY + cumulativeRowHeight;
-                  int stringX = pX + r.borderXOffset + stringXOffset + cumulativeSpacing;
-                  int stringY = pY + spriteY + r.stringYOffset + 11;
-
-                  c.drawItemSprite(id, spriteX, spriteY, scale, false);
-                  c.drawString(str, stringX, stringY, color, 1);
-                }
-
-                break;
-                // Draws a row with an item sprite and multiple strings
-              case "SingleSpriteMultipleStrings":
-                {
-                  int id = r.itemId;
-                  int rowX = pX + r.borderXOffset;
-                  int spriteY = pY + rowsY + cumulativeRowHeight + 2;
-                  int stringY = spriteY + r.stringYOffset + fixFontAnchoring(r.fontSize);
-                  int scale = r.spriteScale;
-                  c.drawItemSprite(id, rowX, spriteY, scale, false);
-                  int stringX = rowX;
-                  for (int i = 0; i < r.strings.length; i++) {
-                    stringX += r.stringXOffsets[i];
-                    int color = r.colors[i];
-                    String text = r.strings[i];
-                    if (text != null && color != 0) c.drawString(text, stringX, stringY, color, 1);
+                    break;
                   }
+                  // Draws a row with an item sprite and one string
+                case "SingleSpriteSingleString":
+                  {
+                    int id = r.itemId;
+                    int scale = r.spriteScale;
+                    String str = r.text;
+                    int color = r.stringColor;
+                    int spriteY = pY + rowsY + cumulativeRowHeight + 2;
+                    int spriteX = pX + r.borderXOffset;
+                    int stringX = spriteX + r.stringXOffset;
+                    int stringY = spriteY + r.stringYOffset + (c.getStringHeight(1) / 2);
+                    c.drawItemSprite(id, spriteX, spriteY, scale, false);
+                    c.drawString(str, stringX, stringY, color, 1);
 
+                    break;
+                  }
+                  // Draws a row with a progress bar and a description string
+                case "ProgressBar":
+                  int barX = pX + r.borderXOffset;
+                  int barY = pY + rowsY + cumulativeRowHeight + 14;
+                  c.drawCenteredString(
+                      r.text, barX + (r.progressBarWidth / 2), barY - 10, r.stringColor, 1);
+                  c.drawProgressBar(
+                      r.currentProgress,
+                      r.maximumProgress,
+                      r.bgColor,
+                      r.fgColor,
+                      r.borderColor,
+                      barX,
+                      barY,
+                      r.progressBarWidth,
+                      r.progressBarHeight,
+                      r.showPercentage,
+                      r.showGoal);
                   break;
-                }
-                // Draws a row with an item sprite and one string
-              case "SingleSpriteSingleString":
-                {
-                  int id = r.itemId;
-                  int scale = r.spriteScale;
-                  String str = r.text;
-                  int color = r.stringColor;
-                  int spriteY = pY + rowsY + cumulativeRowHeight + 2;
-                  int spriteX = pX + r.borderXOffset;
-                  int stringX = spriteX + r.stringXOffset;
-                  int stringY = spriteY + r.stringYOffset + (c.getStringHeight(1) / 2);
-                  c.drawItemSprite(id, spriteX, spriteY, scale, false);
-                  c.drawString(str, stringX, stringY, color, 1);
-
-                  break;
-                }
-                // Draws a row with a progress bar and a description string
-              case "ProgressBar":
-                int barX = pX + r.borderXOffset;
-                int barY = pY + rowsY + cumulativeRowHeight + 14;
-                c.drawCenteredString(
-                    r.text, barX + (r.progressBarWidth / 2), barY - 10, r.stringColor, 1);
-                c.drawProgressBar(
-                    r.currentProgress,
-                    r.maximumProgress,
-                    r.bgColor,
-                    r.fgColor,
-                    r.borderColor,
-                    barX,
-                    barY,
-                    r.progressBarWidth,
-                    r.progressBarHeight,
-                    r.showPercentage,
-                    r.showGoal);
-                break;
+              }
+              cumulativeRowHeight += r.rowHeight;
             }
-            cumulativeRowHeight += r.rowHeight;
           }
         }
         this.setHeight(cumulativeRowHeight + rowsY + 2);
-        if (!rowData.isEmpty()) rowData.clear();
+        if (!rowData.isEmpty()) {
+          synchronized (rowData) {
+            rowData.clear();
+          }
+        }
       }
 
       if (!c.isRunning()) {
         if (isScriptPaint) isScriptPaint = false;
-        if (!rowData.isEmpty()) rowData.clear();
+        if (!rowData.isEmpty()) {
+          synchronized (rowData) {
+            rowData.clear();
+          }
+        }
         startTime = System.currentTimeMillis();
       }
     }

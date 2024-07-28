@@ -1,11 +1,16 @@
 package reflector;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
+
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import orsc.OpenRSC;
 import orsc.mudclient;
 
@@ -18,6 +23,12 @@ import orsc.mudclient;
 public class Reflector {
 
   final ClassLoader classLoader = this.getClass().getClassLoader();
+
+  private final Cache<Map.Entry<Object, String>, Field> objectAndFieldNameToFieldCache =
+      CacheBuilder.newBuilder().expireAfterAccess(1, TimeUnit.HOURS).build();
+
+  private final Cache<Map.Entry<String, String>, Field> classAndFieldNameToFieldCache =
+      CacheBuilder.newBuilder().expireAfterAccess(1, TimeUnit.HOURS).build();
 
   /**
    * Creates the RSC client object.
@@ -125,16 +136,7 @@ public class Reflector {
    */
   public Object getClassMember(String className, String member) {
     try {
-
-      // Create a new JavaClassLoader
-      ClassLoader classLoader = this.getClass().getClassLoader();
-
-      // Load the target class using its binary name
-      Class<?> cli = classLoader.loadClass(className);
-
-      Field mudclientField = cli.getDeclaredField(member);
-      mudclientField.setAccessible(true);
-      return mudclientField.get(this);
+      return getStaticFieldFromClassName(className, member).get(this);
     } catch (Exception e) {
       e.printStackTrace();
     }
@@ -154,36 +156,13 @@ public class Reflector {
    */
   public Object getObjectMember(Object obj, String member) {
 
-    Field field;
     try {
-      field = obj.getClass().getDeclaredField(member);
-      field.setAccessible(true);
-      return field.get(obj);
-    } catch (NoSuchFieldException
-        | SecurityException
-        | IllegalArgumentException
-        | IllegalAccessException e) {
+      return getInstancedFieldFromObjectAndClass(obj, obj.getClass(), member).get(obj);
+    } catch (Exception e) {
       e.printStackTrace();
     }
 
     return null;
-  }
-
-  /**
-   * Retrieves all fields of a given object. It WILL recurse into all superclasses of the object.
-   *
-   * @param <T> -- class type
-   * @param t -- object to grab data from
-   * @return List<Field>
-   */
-  private <T> List<Field> getFields(T t) {
-    List<Field> fields = new ArrayList<>();
-    Class<?> clazz = t.getClass();
-    while (clazz != Object.class) {
-      fields.addAll(Arrays.asList(clazz.getDeclaredFields()));
-      clazz = clazz.getSuperclass();
-    }
-    return fields;
   }
 
   /**
@@ -195,14 +174,17 @@ public class Reflector {
    */
   public Object getObjectMemberFromSuperclass(Object obj, String member) {
     try {
-      List<Field> fields = getFields(obj);
-
-      for (Field f : fields) {
-        if (f.getName().equals("bankItems")) {
-          f.setAccessible(true);
-          return f.get(obj);
+      // TODO: note that this doesn't work when child class and super class share variable name
+      // TODO: expose field lookups as methods
+      Class<?> currentClass = obj.getClass();
+      do {
+        final Field foundField = getInstancedFieldFromObjectAndClass(obj, currentClass, member);
+        if (foundField != null) {
+          return foundField.get(obj);
         }
-      }
+        currentClass = currentClass.getSuperclass();
+      } while (currentClass != null);
+
     } catch (IllegalArgumentException | IllegalAccessException e) {
       e.printStackTrace();
     }
@@ -220,15 +202,70 @@ public class Reflector {
   public void setObjectMember(Object obj, String member, Object value) {
 
     try {
-      Field field;
-      field = obj.getClass().getDeclaredField(member);
-      field.setAccessible(true);
-      field.set(obj, value);
-    } catch (NoSuchFieldException
-        | SecurityException
-        | IllegalArgumentException
-        | IllegalAccessException e) {
+      final Field field = getInstancedFieldFromObjectAndClass(obj, obj.getClass(), member);
+      if (field != null) {
+        field.set(obj, value);
+      }
+    } catch (SecurityException | IllegalArgumentException | IllegalAccessException e) {
       e.printStackTrace();
     }
+  }
+
+  @Nullable private Field getInstancedFieldFromObjectAndClass(
+      final Object object, final Class<?> clazz, final String fieldName) {
+    // TODO: change object-level cache to also include clazz
+    final Map.Entry<Object, String> cacheKey =
+        new AbstractMap.SimpleImmutableEntry<>(object, fieldName);
+
+    try {
+      return objectAndFieldNameToFieldCache.get(
+          cacheKey,
+          () -> {
+            try {
+              final Field fieldInObj = clazz.getDeclaredField(fieldName);
+              fieldInObj.setAccessible(true);
+              return fieldInObj;
+            } catch (final NoSuchFieldException e) {
+              throw new RuntimeException(e);
+            }
+          });
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof NoSuchFieldException) {
+        System.out.println("Suppressed no such field exception");
+      } else {
+        e.printStackTrace();
+      }
+    }
+
+    return null;
+  }
+
+  @Nullable private Field getStaticFieldFromClassName(final String className, final String fieldName) {
+    try {
+      final Map.Entry<String, String> cacheKey =
+          new AbstractMap.SimpleImmutableEntry<>(className, fieldName);
+
+      return classAndFieldNameToFieldCache.get(
+          cacheKey,
+          () -> {
+            try {
+              // Create a new JavaClassLoader
+              ClassLoader classLoader = this.getClass().getClassLoader();
+
+              // Load the target class using its binary name
+              Class<?> cli = classLoader.loadClass(className);
+
+              Field mudclientField = cli.getDeclaredField(fieldName);
+              mudclientField.setAccessible(true);
+              return mudclientField;
+            } catch (final ClassNotFoundException | NoSuchFieldException e) {
+              throw new RuntimeException(e);
+            }
+          });
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    return null;
   }
 }

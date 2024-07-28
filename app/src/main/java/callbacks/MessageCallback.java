@@ -43,6 +43,7 @@ public class MessageCallback {
       int crownID,
       String formerName,
       String colourOverride) {
+    System.out.println(type + " " + message);
     Controller con = Main.getController();
     con.hideRecoveryDetailsMenu();
     con.hideContactDetailsMenu();
@@ -65,11 +66,12 @@ public class MessageCallback {
         con.log("IdleRSC: Standing message recieved, triggering auto-walk.", "gre");
         con.setNeedToMove(true); // this is responsible for auto-walk!
       }
-    } else if (type == MessageType.QUEST) {
-      if (con.isAuthentic() && message.toLowerCase().contains("you are too tired to")) {
-        con.log("IdleRSC: Tired message recieved, triggering sleep handling.", "gre");
-        con.setShouldSleep(true);
-      }
+    }
+    if (con.isAuthentic()
+        && (type == MessageType.GAME || type == MessageType.QUEST)
+        && message.toLowerCase().contains("you are too tired to")) {
+      con.log("IdleRSC: Tired message received, triggering sleep handling.", "gre");
+      con.setShouldSleep(true);
     }
     if (Main.isRunning() && Main.getCurrentRunningScript() != null) {
       if (Main.getCurrentRunningScript() instanceof IdleScript) {
