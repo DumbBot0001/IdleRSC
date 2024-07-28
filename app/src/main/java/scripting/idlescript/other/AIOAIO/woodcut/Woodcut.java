@@ -7,10 +7,8 @@ import scripting.idlescript.other.AIOAIO.AIOAIO;
 import scripting.idlescript.other.AIOAIO.AIOAIO_Script_Utils;
 
 public class Woodcut {
-  private static Controller c;
-
   public static int run() {
-    c = Main.getController();
+    final Controller c = Main.getController();
     c.setBatchBarsOn();
 
     if (!meetsReqs()) {
@@ -20,12 +18,12 @@ public class Woodcut {
       AIOAIO.state.endTime = System.currentTimeMillis();
       return 0;
     }
-    if (!Woodcutting_Utils.hasAxeInInventory()) return getAxe();
+    if (!Woodcutting_Utils.hasAxeInInventory()) return getAxe(c);
     else if (c.getInventoryItemCount() >= 30)
       AIOAIO_Script_Utils.towardsDepositAll(Woodcutting_Utils.axes);
     else if (c.isBatching()) return 250; // Wait to finish chopping
-    else if (c.getNearestReachableObjectById(getTreeId(), true) != null) return chopTree();
-    else return findTrees();
+    else if (c.getNearestReachableObjectById(getTreeId(), true) != null) return chopTree(c);
+    else return findTrees(c);
     return 250;
   }
 
@@ -55,7 +53,7 @@ public class Woodcut {
     throw new IllegalStateException("Unknown tree type: " + AIOAIO.state.currentTask.getName());
   }
 
-  private static int findTrees() {
+  private static int findTrees(final Controller c) {
     switch (AIOAIO.state.currentTask.getName()) {
       case "normal":
       case "oak":
@@ -70,7 +68,7 @@ public class Woodcut {
     throw new IllegalStateException("Unknown tree type: " + AIOAIO.state.currentTask.getName());
   }
 
-  private static int chopTree() {
+  private static int chopTree(final Controller c) {
     AIOAIO.state.status = ("Chopping tree");
     int[] treeCoords = c.getNearestReachableObjectById(getTreeId(), true);
     c.atObject(treeCoords[0], treeCoords[1]);
@@ -79,12 +77,12 @@ public class Woodcut {
     return 1200;
   }
 
-  private static int getAxe() {
-    if (!AIOAIO.state.hasAxeInBank) return getAxeFromFaladorSpawn();
-    return getAxeFromBank();
+  private static int getAxe(final Controller c) {
+    if (!AIOAIO.state.hasAxeInBank) return getAxeFromFaladorSpawn(c);
+    return getAxeFromBank(c);
   }
 
-  private static int getAxeFromBank() {
+  private static int getAxeFromBank(final Controller c) {
     if (AIOAIO_Script_Utils.getDistanceToNearestBanker() > 5) {
       c.walkTowardsBank();
       return 100;
@@ -104,7 +102,7 @@ public class Woodcut {
     return 680;
   }
 
-  private static int getAxeFromFaladorSpawn() {
+  private static int getAxeFromFaladorSpawn(final Controller c) {
     if (c.isInBank()) c.closeBank();
     if (c.pickupItem(87)) {
       AIOAIO.state.status = ("Picking up axe");

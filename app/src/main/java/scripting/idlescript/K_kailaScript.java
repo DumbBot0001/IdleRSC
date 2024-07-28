@@ -1043,7 +1043,7 @@ public class K_kailaScript extends IdleScript {
    *
    */
   /** if bank is not open, wait 2 ticks, repeat check. repeats 20 times. */
-  protected static void waitForBankOpen() {
+  protected static boolean waitForBankOpen() {
     c.sleep(640);
     for (int i = 0; i <= 200; i++) {
       if (!c.isRunning()) break;
@@ -1053,12 +1053,16 @@ public class K_kailaScript extends IdleScript {
         break;
       }
     }
+    return c.isInBank();
   }
-  /** if trade screen is not open, wait 3 ticks, trade again, repeat check. repeats 200 times. */
-  protected static void waitForTradeOpen(String playerName) {
-    for (int i = 0; i <= 200; i++) {
+
+  /** if trade screen is not open, wait 3 ticks, trade again, repeat check. repeats N times. */
+  protected static void waitForTradeOpen(String playerName, int maxAttempts) {
+    for (int i = 0; i <= maxAttempts; i++) {
+      c.setStatus("Awaiting trade open (attempt " + i + ")");
       if (!c.isRunning()) break;
       if (!c.isInTrade()) {
+        c.setStatus("Sending trade request (attempt " + i + ")");
         c.tradePlayer(c.getPlayerServerIndexByName(playerName));
         c.sleep(3 * GAME_TICK);
       } else {
@@ -1067,9 +1071,15 @@ public class K_kailaScript extends IdleScript {
     }
   }
 
+  /** if trade screen is not open, wait 3 ticks, trade again, repeat check. repeats 200 times. */
+  protected static void waitForTradeOpen(String playerName) {
+    waitForTradeOpen(playerName, 200);
+  }
+
   /** if trade confirmation screen is not open, wait 2 ticks, repeat check. repeats 200 times. */
   protected static void waitForTradeConfirmation() {
     for (int i = 0; i <= 200; i++) {
+      c.setStatus("Awaiting trade confirmation (attempt " + i + ")");
       if (!c.isRunning()) break;
       if (!c.isInTradeConfirmation()) {
         c.sleep(2 * GAME_TICK);

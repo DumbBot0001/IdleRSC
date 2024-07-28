@@ -1,16 +1,17 @@
-package scripting.idlescript;
+package scripting.idlescript.aiofighter;
 
-import static bot.Main.getController;
-import static bot.Main.log;
+import static bot.Main.*;
 
 import bot.Main;
 import controller.Controller;
 import java.awt.*;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import javax.swing.*;
 import orsc.ORSCharacter;
+import scripting.idlescript.IdleScript;
 
 /**
  * This is AIOFighter written for IdleRSC.
@@ -67,15 +68,53 @@ public class AIOFighter extends IdleScript {
   private int[] lootTable = null;
   private final int[] startTile = {-1, -1};
   private JFrame scriptFrame;
-  private boolean guiSetup = false;
+  private boolean scriptConfigured = false;
   private boolean scriptStarted = false;
   private final long startTimestamp = System.currentTimeMillis() / 1000L;
   private int bonesBuried = 0;
   private int spellsCasted = 0;
 
-  private static final Map<String, AIOFighterConfig> accountNameToAutoConfig = new HashMap<>() {
-
-  };
+  private static final Map<String, AIOFighterConfig> accountNameToAutoConfig =
+      new HashMap<String, AIOFighterConfig>() {
+        {
+          put(
+              "DumbBot0001",
+              new AIOFighterConfig(
+                  0,
+                  new HashSet<Integer>() {
+                    {
+                      add(6);
+                    }
+                  },
+                  -1,
+                  -1,
+                  new HashSet<>()));
+          put(
+              "DumbBot0002",
+              new AIOFighterConfig(
+                  0,
+                  new HashSet<Integer>() {
+                    {
+                      add(11);
+                    }
+                  },
+                  -1,
+                  -1,
+                  new HashSet<>()));
+          put(
+              "DumbBot0003",
+              new AIOFighterConfig(
+                  0,
+                  new HashSet<Integer>() {
+                    {
+                      add(62);
+                    }
+                  },
+                  -1,
+                  -1,
+                  new HashSet<>()));
+        }
+      };
 
   /**
    * This function is the entry point for the program. It takes an array of parameters and executes
@@ -85,13 +124,13 @@ public class AIOFighter extends IdleScript {
    * @param parameters an array of String values representing the parameters passed to the function
    */
   public int start(String[] parameters) {
-    if (!guiSetup) {
-      setupGUI();
-      guiSetup = true;
+    if (!scriptConfigured) {
+      setValues();
+      scriptConfigured = true;
     }
 
     if (scriptStarted) {
-      guiSetup = false;
+      scriptConfigured = false;
       scriptStarted = false;
       next_attempt = System.currentTimeMillis() + 5000L;
       scriptStart();
@@ -320,6 +359,35 @@ public class AIOFighter extends IdleScript {
     if (maxWander < 0) return true;
 
     return c.distance(startTile[0], startTile[1], x, y) <= maxWander;
+  }
+
+  private void setValues() {
+    // Default to GUI if auto config is not available
+    final AIOFighterConfig config = accountNameToAutoConfig.get(getUsername());
+    if (config == null) {
+      setupGUI();
+      return;
+    }
+
+    this.fightMode = config.getFightMode();
+    this.npcIds = new int[config.getNpcIds().size()];
+    int idx = 0;
+    for (Integer npcId : config.getNpcIds()) {
+      npcIds[idx++] = npcId;
+    }
+    this.maxWander = config.getMaxWander();
+    this.eatingHealth = config.getEatAtHp();
+    this.loot = new int[0];
+    this.openDoors = false;
+    this.buryBones = false;
+    this.prioritizeBones = false;
+    this.maging = false;
+    this.spellId = -1;
+    this.ranging = false;
+    this.arrowId = -1;
+    this.switchId = -1;
+
+    this.scriptStarted = true;
   }
 
   private void popup(String title, String text) {
@@ -670,6 +738,7 @@ public class AIOFighter extends IdleScript {
 
   @Override
   public void questMessageInterrupt(String message) {
+    System.out.println(message);
     if (message.contains("successfully")) spellsCasted++;
     else if (message.equals("I can't get a clear shot from here")) {
       c.setStatus("@red@Walking to NPC to get a shot...");

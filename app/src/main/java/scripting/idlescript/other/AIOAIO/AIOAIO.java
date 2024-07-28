@@ -1,5 +1,8 @@
 package scripting.idlescript.other.AIOAIO;
 
+import static bot.Main.getController;
+import static bot.Main.log;
+
 import bot.Main;
 import scripting.idlescript.IdleScript;
 import scripting.idlescript.other.AIOAIO.core.AIOAIO_State;
@@ -51,6 +54,10 @@ public class AIOAIO extends IdleScript {
   private int loop() {
     if (!state.postLoginSetup && Main.getController().isLoggedIn()) {
       loginSetup();
+    }
+    if (getController().getShouldSleep()) {
+      log(getController().getPlayerName() + " needs to sleep - sleeping");
+      getController().sleepHandler(true);
     }
     if (System.currentTimeMillis() >= state.endTime) {
       state.currentSkill = state.botConfig.getRandomEnabledSkill();

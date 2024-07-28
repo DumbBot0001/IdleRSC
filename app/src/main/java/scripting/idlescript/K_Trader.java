@@ -1,5 +1,7 @@
 package scripting.idlescript;
 
+import static bot.Main.log;
+
 import bot.Main;
 import controller.Controller;
 import java.awt.*;
@@ -27,15 +29,17 @@ public class K_Trader extends K_kailaScript {
       guiSetup = true;
     }
     if (scriptStarted) {
-      if (c.isAuthentic()) c.stop();
-      // clear inventory to stop array issue
-      if (c.getInventoryItemCount() > 0 && traderType != 2) {
-        if (!c.isInBank()) {
-          c.openBank();
-          waitForBankOpen();
+      // if (c.isAuthentic()) c.stop();
+      if (!c.isAuthentic()) {
+        // clear inventory to stop array issue
+        if (c.getInventoryItemCount() > 0 && traderType != 2) {
+          if (!c.isInBank()) {
+            c.openBank();
+            waitForBankOpen();
+          }
+          depositAll();
+          c.closeBank();
         }
-        depositAll();
-        c.closeBank();
       }
 
       guiSetup = false;
@@ -53,24 +57,36 @@ public class K_Trader extends K_kailaScript {
       if (c.getNeedToMove()) c.moveCharacter();
       if (c.getShouldSleep()) c.sleepHandler(true);
       if (traderType == 0) { // giver
-        if ((indexValue == (tradeItems.length - 1) && c.getInventoryItemCount() == 0)
-            || !c.isRunning()) {
-          c.stop();
+        if (c.isAuthentic()) {
+          // TODO: check if bank is empty of given item
+        } else {
+          if ((indexValue == (tradeItems.length - 1) && c.getInventoryItemCount() == 0)
+              || !c.isRunning()) {
+            c.stop();
+          }
         }
         if (c.getInventoryItemCount() == 0) { // do bank loop
           c.setStatus("Banking..");
           c.openBank();
-          waitForBankOpen();
 
-          if (c.isInBank()) {
-            while (indexValue < (tradeItems.length - 1) && c.getInventoryItemCount() < 25) {
-              if (c.isItemTradeable(tradeItems[indexValue])
-                  && c.isItemNotable(tradeItems[indexValue])) {
-                c.withdrawItemAsNote(
-                    tradeItems[indexValue], c.getBankItemCount(tradeItems[indexValue]));
-              } else if (c.isItemTradeable(tradeItems[indexValue])
-                  && c.isItemStackable(tradeItems[indexValue])) {
-                c.withdrawItem(tradeItems[indexValue], c.getBankItemCount(tradeItems[indexValue]));
+          if (waitForBankOpen()) {
+            c.setStatus("Withdrawing items..");
+            for (int idx = 0; idx < tradeItems.length && c.getInventoryItemCount() < 25; idx++) {
+              if (c.isAuthentic()) {
+                if (c.isItemTradeable(tradeItems[idx])) {
+                  log("Send withdraw packet for " + tradeItems[idx]);
+                  // TODO: stop hardcoding to 30
+                  c.withdrawItem(tradeItems[idx], 30);
+                } else {
+                  log("Item " + tradeItems[idx] + " is not tradeable");
+                }
+              } else {
+                if (c.isItemTradeable(tradeItems[idx]) && c.isItemNotable(tradeItems[idx])) {
+                  c.withdrawItemAsNote(tradeItems[idx], c.getBankItemCount(tradeItems[idx]));
+                } else if (c.isItemTradeable(tradeItems[idx])
+                    && c.isItemStackable(tradeItems[idx])) {
+                  c.withdrawItem(tradeItems[idx], c.getBankItemCount(tradeItems[idx]));
+                }
               }
               indexValue++;
             }
@@ -89,7 +105,7 @@ public class K_Trader extends K_kailaScript {
           int[] coords = c.getPlayerCoordsByServerIndex(serverIndex);
           c.walkTo(coords[0], coords[1]);
           c.tradePlayer(serverIndex);
-          waitForTradeOpen(playerName);
+          waitForTradeOpen(playerName, 10);
 
           int[] tradeArray = new int[c.getInventoryItemCount()];
           int[] amountArray = new int[c.getInventoryItemCount()];
@@ -112,7 +128,8 @@ public class K_Trader extends K_kailaScript {
             System.arraycopy(amountArray, 0, amountArray, 0, tradeSlots);
 
           // trade screen
-          c.setTradeItems(tradeArray, amountArray, true);
+          final boolean shouldNoteItems = !c.isAuthentic();
+          c.setTradeItems(tradeArray, amountArray, shouldNoteItems);
           c.sleep(640);
           c.acceptTrade();
           c.sleep(800);
