@@ -4751,6 +4751,8 @@ public class Controller {
    * @return _list guaranteed to not be null.
    */
   public List<Item> getInventoryItems() {
+    // TODO: cache this and hook game loop, clear at end of every game loop
+
     List<Item> _list = new ArrayList<>();
 
     Item[] inventoryItems = mud.getInventory();
@@ -5042,6 +5044,16 @@ public class Controller {
    */
   public void log(String text) {
     log(text, "gre");
+  }
+
+  /**
+   * Logs text to the console, bot log window, and OpenRSC applet.
+   *
+   * @param text String
+   * @param params String
+   */
+  public void log(String text, Object... params) {
+    log(String.format(text, params));
   }
 
   /**

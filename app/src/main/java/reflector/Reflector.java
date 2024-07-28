@@ -2,6 +2,7 @@ package reflector;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -9,8 +10,6 @@ import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
-
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import orsc.OpenRSC;
 import orsc.mudclient;
 
@@ -182,6 +181,7 @@ public class Reflector {
         if (foundField != null) {
           return foundField.get(obj);
         }
+        System.err.println("Moving to superclass");
         currentClass = currentClass.getSuperclass();
       } while (currentClass != null);
 
@@ -229,8 +229,9 @@ public class Reflector {
               throw new RuntimeException(e);
             }
           });
-    } catch (ExecutionException e) {
-      if (e.getCause() instanceof NoSuchFieldException) {
+    } catch (ExecutionException | UncheckedExecutionException e) {
+      if (e.getCause() instanceof RuntimeException
+          && e.getCause().getCause() instanceof NoSuchFieldException) {
         System.out.println("Suppressed no such field exception");
       } else {
         e.printStackTrace();

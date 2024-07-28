@@ -555,6 +555,16 @@ public class Main {
   }
 
   /**
+   * Add a line to the log window using string.format to format a line.
+   *
+   * @param text
+   * @param params
+   */
+  public static void log(String text, Object... params) {
+    log(String.format(text, params));
+  }
+
+  /**
    * For logging function calls in an easy manner.
    *
    * @param method -- the method called.

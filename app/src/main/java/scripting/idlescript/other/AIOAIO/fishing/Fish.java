@@ -30,9 +30,15 @@ public class Fish {
       return getCoinsFromBank();
     else if (needBuyTool) return buyTool();
     else if (!hasFishingTool()) return getToolFromBank();
-    else if (c.getInventoryItemCount() >= 30)
-      AIOAIO_Script_Utils.towardsDepositAll(fishTool().getId(), ItemId.FEATHER.getId());
-    else if (c.isInCombat()) return findFishingSpot(); // Get out of combat
+    else if (c.isAuthentic() && !hasSleepingBag()) return getSleepingBagFromBank();
+    else if (c.getInventoryItemCount() >= 30) {
+      if (c.isAuthentic()) {
+        AIOAIO_Script_Utils.towardsDepositAll(
+            fishTool().getId(), ItemId.FEATHER.getId(), ItemId.SLEEPING_BAG.getId());
+      } else {
+        AIOAIO_Script_Utils.towardsDepositAll(fishTool().getId(), ItemId.FEATHER.getId());
+      }
+    } else if (c.isInCombat()) return findFishingSpot(); // Get out of combat
     else if (c.isBatching()) return 250; // Wait to finish fishing
     else if (c.getNearestReachableObjectById(getFishingSpotId(), true) != null) return fish();
     else return findFishingSpot();
@@ -47,6 +53,10 @@ public class Fish {
     if (AIOAIO.state.currentTask.getName().equals("Salmon")
         && c.getInventoryItemCount(ItemId.FEATHER.getId()) <= 0) return false;
     return c.getInventoryItemCount(fishTool().getId()) >= 1;
+  }
+
+  private static boolean hasSleepingBag() {
+    return c.getInventoryItemCount(ItemId.SLEEPING_BAG.getId()) >= 1;
   }
 
   private static ItemId fishTool() {
@@ -120,6 +130,11 @@ public class Fish {
         needBuyTool = true;
       }
     }
+    return 50;
+  }
+
+  private static int getSleepingBagFromBank() {
+    AIOAIO_Script_Utils.towardsGetFromBank(ItemId.SLEEPING_BAG, 1, false);
     return 50;
   }
 
