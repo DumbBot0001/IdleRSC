@@ -1,5 +1,6 @@
 package controller;
 
+import java.time.temporal.ChronoUnit;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Predicate;
 import models.ServerMessage;
@@ -19,6 +20,18 @@ public class ServerMessageController {
     while (recentServerMesages.size() >= MAX_RECENT_SERVER_MESSAGES) {
       recentServerMesages.poll();
     }
+  }
+
+  public boolean recentMessagesMatchesAnyOfMaximumAge(
+      int minimumAgeTime,
+      ChronoUnit minimumAgeUnit,
+      Predicate<ServerMessage> serverMessagePredicate) {
+    return recentServerMesages.stream()
+        .anyMatch(
+            ((Predicate<ServerMessage>)
+                    serverMessage ->
+                        serverMessage.getChronoUnitsSinceMessage(minimumAgeUnit) <= minimumAgeTime)
+                .and(serverMessagePredicate));
   }
 
   public boolean recentMessagesMatchesAny(Predicate<ServerMessage> serverMessagePredicate) {

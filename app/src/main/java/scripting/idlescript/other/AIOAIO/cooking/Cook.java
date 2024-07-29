@@ -4,6 +4,7 @@ import static bot.Main.log;
 
 import bot.Main;
 import controller.Controller;
+import java.time.temporal.ChronoUnit;
 import models.ServerMessage;
 import models.entities.ItemId;
 import scripting.idlescript.other.AIOAIO.AIOAIO;
@@ -105,7 +106,10 @@ public class Cook {
       log("Attempting to cook %s", ItemId.getById(getRawFishId().getId()));
       // Sleep until we find a burn or cook message, or 2 seconds have passed
       c.sleepUntil(
-          () -> c.getMessageController().recentMessagesMatchesAny(Cook::matchCookOrBurnMessage),
+          () ->
+              c.getMessageController()
+                  .recentMessagesMatchesAnyOfMaximumAge(
+                      1, ChronoUnit.SECONDS, Cook::matchCookOrBurnMessage),
           2_000);
     } else {
       c.waitForBatching(false);

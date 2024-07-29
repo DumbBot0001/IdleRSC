@@ -1,14 +1,24 @@
 package scripting.idlescript.other.AIOAIO.fishing;
 
+import static bot.Main.log;
+
 import bot.Main;
+import com.google.common.collect.ImmutableSet;
+import controller.Constants;
 import controller.Controller;
+import java.time.temporal.ChronoUnit;
+import java.util.Set;
+import models.ServerMessage;
 import models.entities.ItemId;
 import models.entities.NpcId;
 import models.entities.SceneryId;
+import orsc.enumerations.MessageType;
 import scripting.idlescript.other.AIOAIO.AIOAIO;
 import scripting.idlescript.other.AIOAIO.AIOAIO_Script_Utils;
 
 public class Fish {
+  private static final Set<String> SPOTS_FOR_OPTION_2 = ImmutableSet.of("Shark", "Lobster");
+
   private static Controller c;
   private static boolean needBuyTool = false;
 
@@ -115,9 +125,19 @@ public class Fish {
   private static int fish() {
     AIOAIO.state.status = ("Fishing " + AIOAIO.state.currentTask.getName());
     int[] fishCoords = c.getNearestReachableObjectById(getFishingSpotId(), true);
-    if (AIOAIO.state.currentTask.getName() != "Shark") c.atObject(fishCoords[0], fishCoords[1]);
-    else c.atObject2(fishCoords[0], fishCoords[1]);
-    return 1200;
+    log("Attempting to catch on spot %d", getFishingSpotId());
+    if (SPOTS_FOR_OPTION_2.contains(AIOAIO.state.currentTask.getName())) {
+      c.atObject2(fishCoords[0], fishCoords[1]);
+    } else {
+      c.atObject(fishCoords[0], fishCoords[1]);
+    }
+    c.sleepUntil(
+        () ->
+            c.getMessageController()
+                .recentMessagesMatchesAnyOfMaximumAge(
+                    1, ChronoUnit.SECONDS, Fish::foundCatchOrFailToCatchMessage),
+        1_200);
+    return Constants.ONE_TICK_MS;
   }
 
   private static int getToolFromBank() {
@@ -174,5 +194,14 @@ public class Fish {
     c.log("Trading Gerrant..");
     c.openShop(new int[] {NpcId.GERRANT.getId()});
     return 3000;
+  }
+
+  private static boolean foundCatchOrFailToCatchMessage(ServerMessage message) {
+    if (!message.isMessageTypeEqualTo(MessageType.QUEST)) {
+      return false;
+    }
+
+    return message.isMessageContainsCaseInsensitive("fail to catch")
+        || message.isMessageContainsCaseInsensitive("you catch");
   }
 }
