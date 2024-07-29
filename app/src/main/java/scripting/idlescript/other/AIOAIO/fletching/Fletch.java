@@ -45,19 +45,30 @@ public class Fletch {
     if (!c.isInBank()) {
       AIOAIO_Script_Utils.towardsOpenBank();
     }
+    // TODO: pick up knife from ground if in seers
     int[][] requiredItems = getFletchingItemRequirements(); // [itemId, amount]
     // Deposit any excessive items I have in inven
+
     c.getInventoryItems().stream()
         .forEach(
             item -> {
-              int requiredAmount =
-                  Arrays.stream(requiredItems)
-                      .filter(r -> r[0] == item.getItemDef().id)
-                      .findFirst()
-                      .map(r -> r[1])
-                      .orElse(0);
+              int requiredAmount;
+
+              if (c.isAuthentic() && item.getItemDef().id == ItemId.SLEEPING_BAG.getId()) {
+                requiredAmount = 1;
+              } else {
+                requiredAmount =
+                    Arrays.stream(requiredItems)
+                        .filter(r -> r[0] == item.getItemDef().id)
+                        .findFirst()
+                        .map(r -> r[1])
+                        .orElse(0);
+              }
+
               int excessAmount = item.getAmount() - requiredAmount;
-              if (excessAmount > 0) c.depositItem(item.getItemDef().id, excessAmount);
+              if (excessAmount > 0) {
+                c.depositItem(item.getItemDef().id, excessAmount);
+              }
             });
     // Withdraw any needed items
     Arrays.stream(requiredItems)

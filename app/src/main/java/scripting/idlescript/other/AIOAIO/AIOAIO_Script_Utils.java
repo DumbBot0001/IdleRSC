@@ -64,6 +64,18 @@ public class AIOAIO_Script_Utils {
       AIOAIO.state.status = ("Depositing");
 
       Set<Integer> excludedIds = Arrays.stream(exceptions).boxed().collect(Collectors.toSet());
+
+      // Do we have anything other than the excluded ids?
+      Set<Integer> existingItems =
+          Arrays.stream(Main.getController().getInventoryItemIds())
+              .boxed()
+              .collect(Collectors.toSet());
+
+      // We only have excluded items, and so we can consider the deposit as a success
+      if (excludedIds.containsAll(existingItems)) {
+        return true;
+      }
+
       Arrays.stream(Main.getController().getInventoryItemIds())
           .filter(itemId -> itemId != 0 && !excludedIds.contains(itemId))
           .forEach(
@@ -94,6 +106,9 @@ public class AIOAIO_Script_Utils {
       AIOAIO.state.status = "Going towards bank to open it";
       Main.getController().walkTowardsBank();
       return false;
+    }
+    if (Main.getController().isInBank()) {
+      return true;
     }
     AIOAIO.state.status = "Opening bank";
     Main.getController().openBank();

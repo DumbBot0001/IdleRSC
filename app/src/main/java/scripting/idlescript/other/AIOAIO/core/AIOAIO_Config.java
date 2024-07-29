@@ -83,6 +83,7 @@ public class AIOAIO_Config {
                 true,
                 Arrays.asList(
                     new AIOAIO_Task("Shrimp", true, Cook::run),
+                    new AIOAIO_Task("Anchovies", true, Cook::run),
                     new AIOAIO_Task("Trout", true, Cook::run),
                     new AIOAIO_Task("Salmon", true, Cook::run),
                     new AIOAIO_Task("Lobster", true, Cook::run),

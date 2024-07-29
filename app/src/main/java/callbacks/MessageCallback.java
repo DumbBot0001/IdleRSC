@@ -2,8 +2,10 @@ package callbacks;
 
 import bot.Main;
 import controller.Controller;
+import java.time.Instant;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import models.ServerMessage;
 import orsc.enumerations.MessageType;
 import scripting.idlescript.IdleScript;
 
@@ -43,8 +45,18 @@ public class MessageCallback {
       int crownID,
       String formerName,
       String colourOverride) {
-    System.out.println(type + " " + message);
     Controller con = Main.getController();
+
+    // Add server message to message controller
+    con.getMessageController()
+        .addServerMessage(
+            ServerMessage.builder()
+                .timestamp(Instant.now())
+                .messageType(type)
+                .sender(sender)
+                .message(message)
+                .build());
+
     con.hideRecoveryDetailsMenu();
     con.hideContactDetailsMenu();
 
@@ -132,6 +144,7 @@ public class MessageCallback {
       }
     }
   }
+
   /**
    * Handles the level up event. to display level up text and take a screenshot. <br>
    * Currently bugged on certain level ups not returning the correct statId (invalid statId

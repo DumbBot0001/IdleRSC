@@ -1,7 +1,10 @@
 package scripting.idlescript.other.AIOAIO.cooking;
 
+import static bot.Main.log;
+
 import bot.Main;
 import controller.Controller;
+import models.ServerMessage;
 import models.entities.ItemId;
 import scripting.idlescript.other.AIOAIO.AIOAIO;
 import scripting.idlescript.other.AIOAIO.AIOAIO_Script_Utils;
@@ -18,14 +21,42 @@ public class Cook {
       AIOAIO.state.endTime = System.currentTimeMillis();
       return 50;
     }
-    if (c.isBatching()) return 680; // Wait to finish fishing
-    else if (c.getInventoryItemCount(getRawFishId().getId()) <= 0) {
-      if (!AIOAIO_Script_Utils.towardsGetFromBank(getRawFishId(), 30, true)) {
-        c.log("Not enough " + getRawFishId().name() + " to cook! Skipping task");
-        AIOAIO.state.endTime = System.currentTimeMillis();
+
+    if (c.isAuthentic()) {
+      // Authentic branch
+      if (c.getInventoryItemCount(ItemId.SLEEPING_BAG.getId()) <= 0
+          && !AIOAIO_Script_Utils.towardsGetFromBank(ItemId.SLEEPING_BAG, 1, false)) {
+        c.log("Could not get sleeping bag from bank - something is wrong");
       }
-    } else if (c.currentX() == 432 && c.currentY() == 482) cookFish();
-    else c.walkTowards(432, 482);
+      if (c.getInventoryItemCount(getRawFishId().getId()) <= 0) {
+        if (!AIOAIO_Script_Utils.towardsDepositAll(
+            getRawFishId().getId(), ItemId.SLEEPING_BAG.getId())) {
+          // Sleep until we are done depositing anything but raw fish and sleeping bag
+          return 50;
+        }
+
+        // TODO: deposit extraneous sleeping bags etc
+
+        if (!AIOAIO_Script_Utils.towardsGetFromBank(getRawFishId(), 29, false)) {
+          c.log("Not enough " + getRawFishId().name() + " to cook! Skipping task");
+          AIOAIO.state.endTime = System.currentTimeMillis();
+        }
+      } else if (c.currentX() == 432 && c.currentY() == 482) {
+        cookFish();
+        return 50;
+      } else c.walkTowards(432, 482);
+    } else {
+      // Inauthentic branch
+      if (c.isBatching()) return 680; // Wait to finish fishing
+      else if (c.getInventoryItemCount(getRawFishId().getId()) <= 0) {
+        if (!AIOAIO_Script_Utils.towardsGetFromBank(getRawFishId(), 30, true)) {
+          c.log("Not enough " + getRawFishId().name() + " to cook! Skipping task");
+          AIOAIO.state.endTime = System.currentTimeMillis();
+        }
+      } else if (c.currentX() == 432 && c.currentY() == 482) cookFish();
+      else c.walkTowards(432, 482);
+    }
+
     return 250;
   }
 
@@ -67,7 +98,25 @@ public class Cook {
   }
 
   private static void cookFish() {
+    AIOAIO.state.status = "Cooking " + ItemId.getById(getRawFishId().getId());
     c.useItemIdOnObject(432, 480, getRawFishId().getId());
-    c.waitForBatching(false);
+    if (c.isAuthentic()) {
+      c.sleepOneTick();
+      log("Attempting to cook %s", ItemId.getById(getRawFishId().getId()));
+      // Sleep until we find a burn or cook message, or 2 seconds have passed
+      c.sleepUntil(
+          () -> c.getMessageController().recentMessagesMatchesAny(Cook::matchCookOrBurnMessage),
+          2_000);
+    } else {
+      c.waitForBatching(false);
+    }
+  }
+
+  private static boolean matchCookOrBurnMessage(ServerMessage message) {
+    if (message.getSecondsSinceMessage() >= 1) {
+      return false;
+    }
+    return message.isMessageContainsCaseInsensitive("nicely cooked")
+        || message.isMessageContainsCaseInsensitive("you accidentally");
   }
 }

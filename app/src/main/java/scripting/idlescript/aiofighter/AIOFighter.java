@@ -3,13 +3,14 @@ package scripting.idlescript.aiofighter;
 import static bot.Main.*;
 
 import bot.Main;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import controller.Controller;
 import java.awt.*;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import javax.swing.*;
+import models.entities.ItemId;
 import orsc.ORSCharacter;
 import scripting.idlescript.IdleScript;
 
@@ -41,6 +42,46 @@ import scripting.idlescript.IdleScript;
  * @author Dvorak
  */
 public class AIOFighter extends IdleScript {
+
+  private static final Map<String, AIOFighterConfig> ACCOUNT_NAME_TO_AUTO_CONFIG =
+      ImmutableMap.<String, AIOFighterConfig>builder()
+          .put(
+              "DumbBot0001",
+              new AIOFighterConfig(
+                  0, // fightMode
+                  ImmutableSet.of(6),
+                  -1, // maxWander
+                  -1, // eatAtHp
+                  ImmutableSet.of())) // loot table
+          .put(
+              "DumbBot0002",
+              new AIOFighterConfig(
+                  0, // fightMode
+                  ImmutableSet.of(60, 57),
+                  -1, // maxWander
+                  -1, // eatAtHp
+                  ImmutableSet.of(
+                      ItemId.NATURE_RUNE.getId(),
+                      ItemId.FIRE_RUNE.getId(),
+                      ItemId.WATER_RUNE.getId(),
+                      ItemId.AIR_RUNE.getId(),
+                      ItemId.EARTH_RUNE.getId(),
+                      ItemId.MIND_RUNE.getId(),
+                      ItemId.DEATH_RUNE.getId(),
+                      ItemId.BLOOD_RUNE.getId(),
+                      ItemId.CHAOS_RUNE.getId(),
+                      ItemId.LAW_RUNE.getId(),
+                      ItemId.COSMIC_RUNE.getId()))) // loot table
+          .put(
+              "DumbBot0003",
+              new AIOFighterConfig(
+                  0, // fightMode
+                  ImmutableSet.of(62),
+                  -1, // maxWander
+                  -1, // eatAtHp
+                  ImmutableSet.of())) // loot table
+          .build();
+
   private final Controller c = Main.getController();
   private int fightMode = 2;
   private int maxWander = 3;
@@ -73,48 +114,6 @@ public class AIOFighter extends IdleScript {
   private final long startTimestamp = System.currentTimeMillis() / 1000L;
   private int bonesBuried = 0;
   private int spellsCasted = 0;
-
-  private static final Map<String, AIOFighterConfig> accountNameToAutoConfig =
-      new HashMap<String, AIOFighterConfig>() {
-        {
-          put(
-              "DumbBot0001",
-              new AIOFighterConfig(
-                  0,
-                  new HashSet<Integer>() {
-                    {
-                      add(6);
-                    }
-                  },
-                  -1,
-                  -1,
-                  new HashSet<>()));
-          put(
-              "DumbBot0002",
-              new AIOFighterConfig(
-                  0,
-                  new HashSet<Integer>() {
-                    {
-                      add(11);
-                    }
-                  },
-                  -1,
-                  -1,
-                  new HashSet<>()));
-          put(
-              "DumbBot0003",
-              new AIOFighterConfig(
-                  0,
-                  new HashSet<Integer>() {
-                    {
-                      add(62);
-                    }
-                  },
-                  -1,
-                  -1,
-                  new HashSet<>()));
-        }
-      };
 
   /**
    * This function is the entry point for the program. It takes an array of parameters and executes
@@ -363,7 +362,7 @@ public class AIOFighter extends IdleScript {
 
   private void setValues() {
     // Default to GUI if auto config is not available
-    final AIOFighterConfig config = accountNameToAutoConfig.get(getUsername());
+    final AIOFighterConfig config = ACCOUNT_NAME_TO_AUTO_CONFIG.get(getUsername());
     if (config == null) {
       setupGUI();
       return;
