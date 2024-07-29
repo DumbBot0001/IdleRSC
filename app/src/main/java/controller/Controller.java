@@ -58,10 +58,14 @@ import reflector.Reflector;
  * @author Dvorak
  */
 public class Controller {
+
   private final Reflector reflector;
   private final OpenRSC client;
+  private final ServerMessageController serverMessageController;
+
   public final mudclient mud;
 
+  // TODO: move these to their own classes
   final int[] foodIds = {
     335, 333, 350, 352, 355, 357, 359, 362, 364, 367, 370, 373, 718, 551, 553, 555, 590, 546, 1193,
     1191, 325, 326, 327, 328, 329, 330, 332, 334, 336, 750, 751, 257, 258, 259, 261, 262, 263, 210,
@@ -97,6 +101,7 @@ public class Controller {
   private boolean needToMove = false;
   private boolean shouldSleep = false;
   private long auctionTimeout = -1;
+
   public static boolean temporaryToggleSideMenu = false;
   public static final int CTRL_DOWN_MASK = 1 << 7;
   public static final int SHIFT_DOWN_MASK = 1 << 6;
@@ -106,6 +111,14 @@ public class Controller {
     reflector = _reflector;
     client = _client;
     mud = _mud;
+    serverMessageController = new ServerMessageController();
+  }
+
+  // Delegate controllers
+
+  // TODO: ServerMessageController
+  public ServerMessageController getMessageController() {
+    return serverMessageController;
   }
 
   /** @return Whether or not a script is currently running. */
@@ -128,6 +141,14 @@ public class Controller {
     }
   }
 
+  public void sleepOneTick() {
+    try {
+      Thread.sleep(600);
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   /**
    * Suspends the current thread's execution until the provided condition evaluates to true or a 20
    * second timeout is reached
@@ -146,6 +167,7 @@ public class Controller {
    * @param timeout milliseconds before just returning, even if condition is not yet true
    * @return true if the condition was met before the timeout, false if the timeout was reached.
    */
+  // TODO: convert timeout to ChronoUnit
   public boolean sleepUntil(java.util.function.Supplier<Boolean> condition, int timeout) {
     final long pollInterval = 250; // Check condition every 250 milliseconds
 
@@ -4919,14 +4941,7 @@ public class Controller {
    * @param maxTicks the maximum number of ticks to sleep for
    */
   private void openBank_sleep(int maxTicks) {
-    int ticks = 0;
-
-    while (ticks < maxTicks) {
-      if (this.isInBank()) return;
-
-      this.sleep(10);
-      ticks++;
-    }
+    sleepUntil(this::isInBank, 10 * maxTicks);
   }
 
   /**
@@ -4936,14 +4951,22 @@ public class Controller {
    * @param maxTicks the maximum number of ticks to wait for the option menu to open
    */
   private void openBank_optionMenu_sleep(int maxTicks) {
-    int ticks = 0;
-
-    while (ticks < maxTicks) {
-      if (this.isInOptionMenu()) return;
-
-      this.sleep(10);
-      ticks++;
-    }
+    // TODO: bank controller
+    sleepUntil(
+        () ->
+            getMessageController()
+                .recentMessagesMatchesAny(
+                    message ->
+                        // Message type
+                        (message.isMessageTypeEqualTo(MessageType.GAME)
+                                || message.isMessageTypeEqualTo(MessageType.QUEST))
+                            &&
+                            // Message contents
+                            (message.isMessageContainsCaseInsensitive("busy at the moment")
+                                || message.isMessageContainsCaseInsensitive(
+                                    "how many i help you"))),
+        2_000);
+    sleepUntil(this::isInOptionMenu, 10 * maxTicks);
   }
 
   /**
